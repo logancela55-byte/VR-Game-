@@ -4,25 +4,74 @@
   <meta charset="utf-8">
   <title>A-Frame Test</title>
 
-  <script src="https://aframe.io/releases/1.7.1/aframe.min.js"></script&gt;
+  <script src="https://aframe.io/releases/1.7.1/aframe.min.js"></script>
 </head>
 
 <body>
 
   <a-scene>
 
+    <!-- Original objects -->
     <a-box
       position="0 1.5 -4"
       rotation="0 45 0"
       color="red">
     </a-box>
 
+    <!-- Floor -->
     <a-plane
       position="0 0 -4"
       rotation="-90 0 0"
       width="20"
       height="20"
       color="green">
+    </a-plane>
+
+    <!-- Ceiling -->
+    <a-plane
+      position="0 6 -4"
+      rotation="90 0 0"
+      width="20"
+      height="20"
+      color="#cccccc">
+    </a-plane>
+
+    <!-- Walls (room is 20x20, 6 units tall, centered on the floor at 0,0,-4) -->
+
+    <!-- North wall (far) -->
+    <a-plane
+      position="0 3 -14"
+      rotation="0 0 0"
+      width="20"
+      height="6"
+      color="#8899aa">
+    </a-plane>
+
+    <!-- South wall (near, behind viewer's start) -->
+    <a-plane
+      position="0 3 6"
+      rotation="0 180 0"
+      width="20"
+      height="6"
+      color="#8899aa">
+    </a-plane>
+
+    <!-- East wall -->
+    <a-plane
+      position="10 3 -4"
+      rotation="0 -90 0"
+      width="20"
+      height="6"
+      color="#99aabb">
+    </a-plane>
+
+    <!-- West wall -->
+    <a-plane
+      position="-10 3 -4"
+      rotation="0 90 0"
+      width="20"
+      height="6"
+      color="#99aabb">
     </a-plane>
 
     <a-sky color="lightblue"></a-sky>
