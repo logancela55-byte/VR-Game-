@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>A-Frame Test</title>
+  <title>A-Frame Room Test</title>
 
   <script src="https://aframe.io/releases/1.7.1/aframe.min.js"></script>
 </head>
@@ -11,12 +11,25 @@
 
   <a-scene>
 
-    <!-- Original objects -->
+    <!-- Original box (now sitting on the table) -->
     <a-box
       position="0 1.5 -4"
       rotation="0 45 0"
       color="red">
     </a-box>
+
+    <!-- Table (center of room) -->
+    <a-box
+      position="0 0.9 -4"
+      width="2"
+      height="0.1"
+      depth="1"
+      color="#5c3a21">
+    </a-box>
+    <a-box position="0.9 0.45 -3.6" width="0.1" height="0.9" depth="0.1" color="#3e2712"></a-box>
+    <a-box position="-0.9 0.45 -3.6" width="0.1" height="0.9" depth="0.1" color="#3e2712"></a-box>
+    <a-box position="0.9 0.45 -4.4" width="0.1" height="0.9" depth="0.1" color="#3e2712"></a-box>
+    <a-box position="-0.9 0.45 -4.4" width="0.1" height="0.9" depth="0.1" color="#3e2712"></a-box>
 
     <!-- Floor (wood brown) -->
     <a-plane
@@ -46,6 +59,8 @@
       height="6"
       color="#a94442">
     </a-plane>
+    <a-plane position="0 3.5 -13.9" rotation="0 0 0" width="2" height="3" color="#f5f0e6"></a-plane>
+    <a-text value="Poster 1" position="0 3.5 -13.85" rotation="0 0 0" align="center" color="#333" width="2.5"></a-text>
 
     <!-- South wall (near, behind viewer's start) -->
     <a-plane
@@ -55,6 +70,8 @@
       height="6"
       color="#a94442">
     </a-plane>
+    <a-plane position="0 3.5 5.9" rotation="0 180 0" width="2" height="3" color="#f5f0e6"></a-plane>
+    <a-text value="Poster 2" position="0 3.5 5.85" rotation="0 180 0" align="center" color="#333" width="2.5"></a-text>
 
     <!-- East wall -->
     <a-plane
@@ -64,6 +81,8 @@
       height="6"
       color="#a94442">
     </a-plane>
+    <a-plane position="9.9 3.5 -4" rotation="0 -90 0" width="2" height="3" color="#f5f0e6"></a-plane>
+    <a-text value="Poster 3" position="9.85 3.5 -4" rotation="0 -90 0" align="center" color="#333" width="2.5"></a-text>
 
     <!-- West wall -->
     <a-plane
@@ -73,6 +92,8 @@
       height="6"
       color="#a94442">
     </a-plane>
+    <a-plane position="-9.9 3.5 -4" rotation="0 90 0" width="2" height="3" color="#f5f0e6"></a-plane>
+    <a-text value="Poster 4" position="-9.85 3.5 -4" rotation="0 90 0" align="center" color="#333" width="2.5"></a-text>
 
     <a-sky color="lightblue"></a-sky>
 
