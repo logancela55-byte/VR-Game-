@@ -3,22 +3,25 @@
 <head>
   <meta charset="utf-8">
   <title>A-Frame Escape Room</title>
-
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <script src="https://aframe.io/releases/1.7.1/aframe.min.js"></script>
+  <style>
+    html, body { margin: 0; height: 100%; background: #000; }
+    #hud {
+      position: fixed; top: 0; left: 0; right: 0;
+      text-align: center; color: #f5f0dd; font-family: Georgia, serif;
+      padding: 14px; pointer-events: none; text-shadow: 0 1px 4px #000;
+      font-size: 16px; z-index: 5;
+    }
+  </style>
 </head>
-
 <body>
+  <div id="hud">Find 3 clues around the room, then enter the 3-digit code on the keypad to open the door.</div>
 
-  <a-scene>
+  <a-scene cursor="rayOrigin: mouse" raycaster="objects: .clickable">
 
-    <!-- ============================================================
-         PROCEDURAL TEXTURES
-         Drawn on hidden <canvas> elements with plain JS so the whole
-         scene works from this one file with no external image files.
-    ============================================================= -->
     <a-assets>
       <canvas id="woodFloorCanvas" width="256" height="256"></canvas>
-      <canvas id="woodDarkCanvas" width="256" height="256"></canvas>
       <canvas id="wallPaintCanvas" width="256" height="256"></canvas>
       <canvas id="metalCanvas" width="256" height="256"></canvas>
       <canvas id="paperCanvas" width="256" height="256"></canvas>
@@ -28,19 +31,16 @@
       (function () {
         function paint(id, fn) {
           var c = document.getElementById(id);
-          var ctx = c.getContext('2d');
-          fn(ctx, c.width, c.height);
+          fn(c.getContext('2d'), c.width, c.height);
         }
-        function drawWood(ctx, w, h, base, dark) {
-          ctx.fillStyle = base;
-          ctx.fillRect(0, 0, w, h);
+        function drawWood(ctx, w, h) {
+          ctx.fillStyle = '#8a5a34'; ctx.fillRect(0, 0, w, h);
           for (var i = 0; i < 12; i++) {
             ctx.globalAlpha = 0.15;
-            ctx.fillStyle = (i % 2) ? dark : base;
+            ctx.fillStyle = (i % 2) ? '#5c3a20' : '#8a5a34';
             ctx.fillRect(0, i * (h / 12), w, h / 24);
           }
-          ctx.globalAlpha = 0.08;
-          ctx.strokeStyle = dark;
+          ctx.globalAlpha = 0.08; ctx.strokeStyle = '#5c3a20';
           for (var j = 0; j < 24; j++) {
             ctx.beginPath();
             ctx.moveTo(Math.random() * w, 0);
@@ -50,45 +50,160 @@
           ctx.globalAlpha = 1;
         }
         function drawWall(ctx, w, h) {
-          ctx.fillStyle = '#e9e1c9';
-          ctx.fillRect(0, 0, w, h);
-          ctx.fillStyle = '#cabf9c';
-          ctx.fillRect(0, h * 0.76, w, h * 0.04);
-          ctx.fillStyle = '#d7ba8c';
-          ctx.fillRect(0, h * 0.80, w, h * 0.20);
-          ctx.strokeStyle = '#d3c8a9';
-          ctx.globalAlpha = 0.4;
+          ctx.fillStyle = '#e9e1c9'; ctx.fillRect(0, 0, w, h);
+          ctx.fillStyle = '#cabf9c'; ctx.fillRect(0, h * 0.76, w, h * 0.04);
+          ctx.fillStyle = '#d7ba8c'; ctx.fillRect(0, h * 0.80, w, h * 0.20);
+          ctx.strokeStyle = '#d3c8a9'; ctx.globalAlpha = 0.4;
           for (var x = 0; x < w; x += w / 4) {
-            ctx.beginPath();
-            ctx.moveTo(x, 0);
-            ctx.lineTo(x, h * 0.76);
-            ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h * 0.76); ctx.stroke();
           }
           ctx.globalAlpha = 1;
         }
         function drawMetal(ctx, w, h) {
           var grad = ctx.createLinearGradient(0, 0, 0, h);
-          grad.addColorStop(0, '#d3d8db');
-          grad.addColorStop(0.5, '#9aa2a8');
-          grad.addColorStop(1, '#7d858b');
-          ctx.fillStyle = grad;
-          ctx.fillRect(0, 0, w, h);
+          grad.addColorStop(0, '#d3d8db'); grad.addColorStop(0.5, '#9aa2a8'); grad.addColorStop(1, '#7d858b');
+          ctx.fillStyle = grad; ctx.fillRect(0, 0, w, h);
           ctx.strokeStyle = '#ffffff';
           for (var i = 0; i < 50; i++) {
             ctx.globalAlpha = 0.05;
             var y = Math.random() * h;
-            ctx.beginPath();
-            ctx.moveTo(0, y);
-            ctx.lineTo(w, y);
-            ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
           }
           ctx.globalAlpha = 1;
         }
         function drawPaper(ctx, w, h) {
-          ctx.fillStyle = '#f5f0dd';
-          ctx.fillRect(0, 0, w, h);
-          ctx.strokeStyle = '#cfc7a8';
-          ctx.globalAlpha = 0.5;
+          ctx.fillStyle = '#f5f0dd'; ctx.fillRect(0, 0, w, h);
+          ctx.strokeStyle = '#cfc7a8'; ctx.globalAlpha = 0.5;
           for (var y = h * 0.2; y < h; y += h * 0.12) {
-            ctx.beginPath();
-            ctx.moveTo(w *
+            ctx.beginPath(); ctx.moveTo(w * 0.1, y); ctx.lineTo(w * 0.9, y); ctx.stroke();
+          }
+          ctx.globalAlpha = 1;
+        }
+        paint('woodFloorCanvas', drawWood);
+        paint('wallPaintCanvas', drawWall);
+        paint('metalCanvas', drawMetal);
+        paint('paperCanvas', drawPaper);
+      })();
+
+      // ---------------- Game logic ----------------
+      AFRAME.registerComponent('clue', {
+        schema: { digit: { type: 'string' } },
+        init: function () {
+          var el = this.el, digit = this.data.digit, revealed = false;
+          el.addEventListener('click', function () {
+            if (revealed) return;
+            revealed = true;
+            el.setAttribute('material', 'color', '#ffe08a');
+            var label = document.createElement('a-text');
+            label.setAttribute('value', digit);
+            label.setAttribute('align', 'center');
+            label.setAttribute('color', '#222');
+            label.setAttribute('position', '0 0 0.06');
+            label.setAttribute('scale', '0.6 0.6 0.6');
+            el.appendChild(label);
+          });
+        }
+      });
+
+      AFRAME.registerComponent('keypad', {
+        init: function () {
+          var code = '', target = '317', solved = false;
+          var display = document.querySelector('#keypadDisplay');
+          var door = document.querySelector('#door');
+          var status = document.querySelector('#hud');
+          this.el.querySelectorAll('.key').forEach(function (key) {
+            key.addEventListener('click', function () {
+              if (solved) return;
+              var val = key.getAttribute('data-val');
+              if (val === 'clear') { code = ''; }
+              else if (val === 'enter') {
+                if (code === target) {
+                  solved = true;
+                  door.setAttribute('animation', 'property: rotation; to: 0 100 0; dur: 1200; easing: easeInOutQuad');
+                  status.textContent = 'Correct! The door swings open.';
+                } else {
+                  status.textContent = 'Wrong code, try again.';
+                  code = '';
+                }
+              } else {
+                if (code.length < 3) code += val;
+              }
+              display.setAttribute('value', code);
+            });
+          });
+        }
+      });
+    </script>
+
+    <!-- Room shell -->
+    <a-plane rotation="-90 0 0" width="8" height="8" position="0 0 0"
+      material="src: #woodFloorCanvas; repeat: 4 4"></a-plane>
+    <a-plane rotation="90 0 0" width="8" height="8" position="0 3 0"
+      material="src: #wallPaintCanvas; repeat: 2 2" color="#fff"></a-plane>
+
+    <a-plane width="8" height="3" position="0 1.5 -4" material="src: #wallPaintCanvas; repeat: 2 1"></a-plane>
+    <a-plane width="8" height="3" position="0 1.5 4" rotation="0 180 0" material="src: #wallPaintCanvas; repeat: 2 1"></a-plane>
+    <a-plane width="8" height="3" position="-4 1.5 0" rotation="0 90 0" material="src: #wallPaintCanvas; repeat: 2 1"></a-plane>
+    <a-plane width="8" height="3" position="4 1.5 0" rotation="0 -90 0" material="src: #wallPaintCanvas; repeat: 2 1"></a-plane>
+
+    <!-- Door on back wall, hinge via pivot entity -->
+    <a-entity id="door" position="0.9 0 3.99" rotation="0 0 0">
+      <a-box width="1.8" height="2.6" depth="0.1" position="-0.9 1.3 0"
+        material="src: #metalCanvas"></a-box>
+    </a-entity>
+
+    <!-- Keypad -->
+    <a-entity id="keypad" keypad position="2.5 1.4 3.9">
+      <a-plane width="0.9" height="1.1" color="#333"></a-plane>
+      <a-text id="keypadDisplay" value="" align="center" color="#7CFC00"
+        position="0 0.4 0.01" scale="0.5 0.5 0.5"></a-text>
+    </a-entity>
+
+    <!-- Clue objects -->
+    <a-box class="clickable" clue="digit:3" position="-2.5 0.4 -3.5" depth="0.4" height="0.4" width="0.4"
+      material="src: #paperCanvas"></a-box>
+    <a-cylinder class="clickable" clue="digit:1" position="-3.5 0.3 1" radius="0.3" height="0.3"
+      material="src: #metalCanvas"></a-cylinder>
+    <a-sphere class="clickable" clue="digit:7" position="3.3 1 -3" radius="0.3"
+      material="src: #paperCanvas"></a-sphere>
+
+    <a-entity id="camRig" position="0 1.6 2">
+      <a-camera look-controls wasd-controls>
+        <a-cursor color="#fff" raycaster="objects: .clickable, .key"></a-cursor>
+      </a-camera>
+    </a-entity>
+
+    <a-light type="ambient" color="#cccccc"></a-light>
+    <a-light type="point" position="0 2.8 0" intensity="0.6"></a-light>
+  </a-scene>
+
+  <script>
+    window.addEventListener('DOMContentLoaded', function () {
+      var keypad = document.querySelector('#keypad');
+      var layout = [
+        ['1','-0.28','0.15'], ['2','0','0.15'], ['3','0.28','0.15'],
+        ['4','-0.28','-0.1'], ['5','0','-0.1'], ['6','0.28','-0.1'],
+        ['7','-0.28','-0.35'], ['8','0','-0.35'], ['9','0.28','-0.35'],
+        ['clear','-0.28','-0.6'], ['0','0','-0.6'], ['enter','0.28','-0.6']
+      ];
+      layout.forEach(function (k) {
+        var btn = document.createElement('a-plane');
+        btn.classList.add('key', 'clickable');
+        btn.setAttribute('data-val', k[0]);
+        btn.setAttribute('width', '0.24');
+        btn.setAttribute('height', '0.2');
+        btn.setAttribute('color', k[0] === 'enter' ? '#2e7d32' : (k[0] === 'clear' ? '#8b1e1e' : '#555'));
+        btn.setAttribute('position', k[1] + ' ' + k[2] + ' 0.01');
+        var label = document.createElement('a-text');
+        label.setAttribute('value', k[0] === 'enter' ? 'OK' : (k[0] === 'clear' ? 'C' : k[0]));
+        label.setAttribute('align', 'center');
+        label.setAttribute('color', '#fff');
+        label.setAttribute('scale', '0.5 0.5 0.5');
+        label.setAttribute('position', '0 0 0.02');
+        btn.appendChild(label);
+        keypad.appendChild(btn);
+      });
+    });
+  </script>
+</body>
+</html>
