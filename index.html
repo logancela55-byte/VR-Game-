@@ -1,209 +1,441 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="utf-8">
-  <title>A-Frame Escape Room</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <script src="https://aframe.io/releases/1.7.1/aframe.min.js"></script>
-  <style>
-    html, body { margin: 0; height: 100%; background: #000; }
-    #hud {
-      position: fixed; top: 0; left: 0; right: 0;
-      text-align: center; color: #f5f0dd; font-family: Georgia, serif;
-      padding: 14px; pointer-events: none; text-shadow: 0 1px 4px #000;
-      font-size: 16px; z-index: 5;
-    }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>The Arcane Chamber</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Cormorant+Garamond:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#e9dfc8; --ink-dim:#b6a982;
+    --bg:#0c0a14; --panel:#151022ee; --panel-border:#4a3a7a;
+    --gold:#d8b464; --amber:#e0a63c;
+    box-sizing:border-box;
+    padding-top:env(safe-area-inset-top,0px);
+    padding-bottom:env(safe-area-inset-bottom,0px);
+  }
+  html{scroll-padding-top:env(safe-area-inset-top,0px); height:100%;}
+  @media (prefers-color-scheme:light){
+    :root:not([data-theme="dark"]){ --ink:#e9dfc8; --bg:#0c0a14; }
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%; margin:0; overflow:hidden; background:var(--bg); color:var(--ink);
+    font-family:'Cormorant Garamond', Georgia, serif;}
+  #app{position:fixed; inset:0;}
+  canvas{display:block; width:100%; height:100%;}
+
+  .title{font-family:'Cinzel', Georgia, serif;}
+
+  #overlay{position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
+    background:radial-gradient(ellipse at center, #1a1330 0%, #060409 80%); z-index:20;}
+  #overlay .card{max-width:440px; padding:36px 32px; text-align:center; border:1px solid var(--panel-border);
+    background:var(--panel); border-radius:6px; box-shadow:0 0 60px #6a4bd633;}
+  #overlay h1{font-size:28px; letter-spacing:1px; color:var(--gold); margin:0 0 14px;}
+  #overlay p{font-size:19px; line-height:1.5; color:var(--ink-dim); margin:0 0 20px;}
+  button.spell{font-family:'Cinzel',serif; font-size:15px; letter-spacing:1px; color:#1a1330; background:linear-gradient(180deg,var(--gold),var(--amber));
+    border:none; padding:12px 26px; border-radius:3px; cursor:pointer; box-shadow:0 3px 0 #7a5a1f;}
+  button.spell:active{transform:translateY(2px); box-shadow:0 1px 0 #7a5a1f;}
+  #vrBtn{margin-top:12px; display:none; background:transparent; color:var(--ink-dim); border:1px solid var(--panel-border); font-family:'Cormorant Garamond',serif;}
+
+  #hud{position:fixed; top:0; left:0; right:0; padding:16px 20px; display:none; z-index:10; pointer-events:none;}
+  #levelTag{text-align:center; font-family:'Cinzel',serif; font-size:13px; letter-spacing:2px; color:var(--gold); margin-bottom:6px;}
+  #riddle{max-width:520px; margin:0 auto; text-align:center; background:var(--panel); border:1px solid var(--panel-border);
+    border-radius:6px; padding:10px 18px; font-size:17px; color:var(--ink-dim);}
+  #riddle b{color:var(--gold); font-weight:600;}
+  #msg{position:fixed; top:76px; left:0; right:0; text-align:center; font-size:19px; color:#e08b8b; z-index:10; display:none; pointer-events:none;}
+
+  #reticle{position:fixed; top:50%; left:50%; width:10px; height:10px; margin:-5px 0 0 -5px;
+    border:2px solid var(--gold); border-radius:50%; z-index:10; display:none; pointer-events:none; opacity:.85;}
+
+  #win{position:fixed; inset:0; display:none; align-items:center; justify-content:center; z-index:30;
+    background:#08060fdd;}
+  #win .card{max-width:420px; text-align:center; padding:34px; border:1px solid var(--gold); background:var(--panel); border-radius:6px;}
+  #win h2{color:var(--gold); font-size:26px; margin:0 0 10px;}
+  #win p{color:var(--ink-dim); font-size:18px; margin:0 0 18px;}
+</style>
 </head>
 <body>
-  <div id="hud">Find 3 clues around the room, then enter the 3-digit code on the keypad to open the door.</div>
+<div id="app"></div>
 
-  <a-scene cursor="rayOrigin: mouse" raycaster="objects: .clickable">
+<div id="overlay">
+  <div class="card">
+    <h1 class="title">The Arcane Chamber</h1>
+    <p>You are sealed inside a sorcerer's vault of six chambers. In each, enchanted orbs guard the door — awaken them in the order the old rhyme demands. Beware: not every orb wishes you well.</p>
+    <p style="font-size:15px;">Desktop: click to look around, <b style="color:var(--gold)">WASD</b> to walk, click an orb to awaken it.<br>Headset: press Enter Realm, then use your controller trigger to select an orb.</p>
+    <button class="spell" id="startBtn">Enter the Chamber</button>
+    <br><button class="spell" id="vrBtn">Enter Realm (VR)</button>
+  </div>
+</div>
 
-    <a-assets>
-      <canvas id="woodFloorCanvas" width="256" height="256"></canvas>
-      <canvas id="wallPaintCanvas" width="256" height="256"></canvas>
-      <canvas id="metalCanvas" width="256" height="256"></canvas>
-      <canvas id="paperCanvas" width="256" height="256"></canvas>
-    </a-assets>
+<div id="hud"><div id="levelTag"></div><div id="riddle"></div></div>
+<div id="msg"></div>
+<div id="reticle"></div>
 
-    <script>
-      (function () {
-        function paint(id, fn) {
-          var c = document.getElementById(id);
-          fn(c.getContext('2d'), c.width, c.height);
-        }
-        function drawWood(ctx, w, h) {
-          ctx.fillStyle = '#8a5a34'; ctx.fillRect(0, 0, w, h);
-          for (var i = 0; i < 12; i++) {
-            ctx.globalAlpha = 0.15;
-            ctx.fillStyle = (i % 2) ? '#5c3a20' : '#8a5a34';
-            ctx.fillRect(0, i * (h / 12), w, h / 24);
-          }
-          ctx.globalAlpha = 0.08; ctx.strokeStyle = '#5c3a20';
-          for (var j = 0; j < 24; j++) {
-            ctx.beginPath();
-            ctx.moveTo(Math.random() * w, 0);
-            ctx.lineTo(Math.random() * w, h);
-            ctx.stroke();
-          }
-          ctx.globalAlpha = 1;
-        }
-        function drawWall(ctx, w, h) {
-          ctx.fillStyle = '#e9e1c9'; ctx.fillRect(0, 0, w, h);
-          ctx.fillStyle = '#cabf9c'; ctx.fillRect(0, h * 0.76, w, h * 0.04);
-          ctx.fillStyle = '#d7ba8c'; ctx.fillRect(0, h * 0.80, w, h * 0.20);
-          ctx.strokeStyle = '#d3c8a9'; ctx.globalAlpha = 0.4;
-          for (var x = 0; x < w; x += w / 4) {
-            ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h * 0.76); ctx.stroke();
-          }
-          ctx.globalAlpha = 1;
-        }
-        function drawMetal(ctx, w, h) {
-          var grad = ctx.createLinearGradient(0, 0, 0, h);
-          grad.addColorStop(0, '#d3d8db'); grad.addColorStop(0.5, '#9aa2a8'); grad.addColorStop(1, '#7d858b');
-          ctx.fillStyle = grad; ctx.fillRect(0, 0, w, h);
-          ctx.strokeStyle = '#ffffff';
-          for (var i = 0; i < 50; i++) {
-            ctx.globalAlpha = 0.05;
-            var y = Math.random() * h;
-            ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
-          }
-          ctx.globalAlpha = 1;
-        }
-        function drawPaper(ctx, w, h) {
-          ctx.fillStyle = '#f5f0dd'; ctx.fillRect(0, 0, w, h);
-          ctx.strokeStyle = '#cfc7a8'; ctx.globalAlpha = 0.5;
-          for (var y = h * 0.2; y < h; y += h * 0.12) {
-            ctx.beginPath(); ctx.moveTo(w * 0.1, y); ctx.lineTo(w * 0.9, y); ctx.stroke();
-          }
-          ctx.globalAlpha = 1;
-        }
-        paint('woodFloorCanvas', drawWood);
-        paint('wallPaintCanvas', drawWall);
-        paint('metalCanvas', drawMetal);
-        paint('paperCanvas', drawPaper);
-      })();
+<div id="win">
+  <div class="card">
+    <h2 class="title">You Have Escaped</h2>
+    <p>The last rune fades. Cool night air spills through the final door. All six chambers lie behind you.</p>
+    <button class="spell" id="againBtn">Try Again</button>
+  </div>
+</div>
 
-      // ---------------- Game logic ----------------
-      AFRAME.registerComponent('clue', {
-        schema: { digit: { type: 'string' } },
-        init: function () {
-          var el = this.el, digit = this.data.digit, revealed = false;
-          el.addEventListener('click', function () {
-            if (revealed) return;
-            revealed = true;
-            el.setAttribute('material', 'color', '#ffe08a');
-            var label = document.createElement('a-text');
-            label.setAttribute('value', digit);
-            label.setAttribute('align', 'center');
-            label.setAttribute('color', '#222');
-            label.setAttribute('position', '0 0 0.06');
-            label.setAttribute('scale', '0.6 0.6 0.6');
-            el.appendChild(label);
-          });
-        }
-      });
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+  "use strict";
 
-      AFRAME.registerComponent('keypad', {
-        init: function () {
-          var code = '', target = '317', solved = false;
-          var display = document.querySelector('#keypadDisplay');
-          var door = document.querySelector('#door');
-          var status = document.querySelector('#hud');
-          this.el.querySelectorAll('.key').forEach(function (key) {
-            key.addEventListener('click', function () {
-              if (solved) return;
-              var val = key.getAttribute('data-val');
-              if (val === 'clear') { code = ''; }
-              else if (val === 'enter') {
-                if (code === target) {
-                  solved = true;
-                  door.setAttribute('animation', 'property: rotation; to: 0 100 0; dur: 1200; easing: easeInOutQuad');
-                  status.textContent = 'Correct! The door swings open.';
-                } else {
-                  status.textContent = 'Wrong code, try again.';
-                  code = '';
-                }
-              } else {
-                if (code.length < 3) code += val;
-              }
-              display.setAttribute('value', code);
-            });
-          });
-        }
-      });
-    </script>
+  // ---------- scene setup ----------
+  var scene = new THREE.Scene();
+  scene.fog = new THREE.FogExp2(0x0c0a14, 0.05);
 
-    <!-- Room shell -->
-    <a-plane rotation="-90 0 0" width="8" height="8" position="0 0 0"
-      material="src: #woodFloorCanvas; repeat: 4 4"></a-plane>
-    <a-plane rotation="90 0 0" width="8" height="8" position="0 3 0"
-      material="src: #wallPaintCanvas; repeat: 2 2" color="#fff"></a-plane>
+  var camera = new THREE.PerspectiveCamera(70, window.innerWidth/window.innerHeight, 0.05, 100);
+  var camRig = new THREE.Object3D(); // holds yaw
+  var camPitch = new THREE.Object3D();
+  camRig.add(camPitch); camPitch.add(camera);
+  camRig.position.set(0, 1.6, 3);
+  scene.add(camRig);
 
-    <a-plane width="8" height="3" position="0 1.5 -4" material="src: #wallPaintCanvas; repeat: 2 1"></a-plane>
-    <a-plane width="8" height="3" position="0 1.5 4" rotation="0 180 0" material="src: #wallPaintCanvas; repeat: 2 1"></a-plane>
-    <a-plane width="8" height="3" position="-4 1.5 0" rotation="0 90 0" material="src: #wallPaintCanvas; repeat: 2 1"></a-plane>
-    <a-plane width="8" height="3" position="4 1.5 0" rotation="0 -90 0" material="src: #wallPaintCanvas; repeat: 2 1"></a-plane>
+  var renderer = new THREE.WebGLRenderer({antialias:true});
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.xr.enabled = true;
+  document.getElementById('app').appendChild(renderer.domElement);
 
-    <!-- Door on back wall, hinge via pivot entity -->
-    <a-entity id="door" position="0.9 0 3.99" rotation="0 0 0">
-      <a-box width="1.8" height="2.6" depth="0.1" position="-0.9 1.3 0"
-        material="src: #metalCanvas"></a-box>
-    </a-entity>
+  window.addEventListener('resize', function(){
+    camera.aspect = window.innerWidth/window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
 
-    <!-- Keypad -->
-    <a-entity id="keypad" keypad position="2.5 1.4 3.9">
-      <a-plane width="0.9" height="1.1" color="#333"></a-plane>
-      <a-text id="keypadDisplay" value="" align="center" color="#7CFC00"
-        position="0 0.4 0.01" scale="0.5 0.5 0.5"></a-text>
-    </a-entity>
+  // ---------- room ----------
+  var ROOM = 4.2;
+  var floorMat = new THREE.MeshStandardMaterial({color:0x241a3a, roughness:0.9});
+  var wallMat = new THREE.MeshStandardMaterial({color:0x18122a, roughness:1});
+  var floor = new THREE.Mesh(new THREE.PlaneGeometry(ROOM*2, ROOM*2), floorMat);
+  floor.rotation.x = -Math.PI/2; scene.add(floor);
+  var ceil = floor.clone(); ceil.position.y = 3.2; ceil.rotation.x = Math.PI/2; scene.add(ceil);
 
-    <!-- Clue objects -->
-    <a-box class="clickable" clue="digit:3" position="-2.5 0.4 -3.5" depth="0.4" height="0.4" width="0.4"
-      material="src: #paperCanvas"></a-box>
-    <a-cylinder class="clickable" clue="digit:1" position="-3.5 0.3 1" radius="0.3" height="0.3"
-      material="src: #metalCanvas"></a-cylinder>
-    <a-sphere class="clickable" clue="digit:7" position="3.3 1 -3" radius="0.3"
-      material="src: #paperCanvas"></a-sphere>
+  var wallDefs = [
+    {x:0,z:-ROOM,ry:0},{x:0,z:ROOM,ry:Math.PI},{x:-ROOM,z:0,ry:Math.PI/2},{x:ROOM,z:0,ry:-Math.PI/2}
+  ];
+  wallDefs.forEach(function(w, i){
+    var wall = new THREE.Mesh(new THREE.PlaneGeometry(ROOM*2, 3.2), wallMat);
+    wall.position.set(w.x, 1.6, w.z); wall.rotation.y = w.ry;
+    if(i===0){ wall.userData.isDoorWall = true; }
+    scene.add(wall);
+  });
 
-    <a-entity id="camRig" position="0 1.6 2">
-      <a-camera look-controls wasd-controls>
-        <a-cursor color="#fff" raycaster="objects: .clickable, .key"></a-cursor>
-      </a-camera>
-    </a-entity>
+  var ambient = new THREE.AmbientLight(0x241a3a, 0.9);
+  scene.add(ambient);
+  var moon = new THREE.PointLight(0x8a7bd6, 0.6, 12);
+  moon.position.set(0, 2.8, 0); scene.add(moon);
 
-    <a-light type="ambient" color="#cccccc"></a-light>
-    <a-light type="point" position="0 2.8 0" intensity="0.6"></a-light>
-  </a-scene>
+  // door
+  var doorGroup = new THREE.Object3D();
+  doorGroup.position.set(0, 0, -ROOM+0.02);
+  var door = new THREE.Mesh(new THREE.BoxGeometry(1.4, 2.6, 0.08),
+    new THREE.MeshStandardMaterial({color:0x2c2145, emissive:0x3a2a63, emissiveIntensity:0.4, roughness:0.6}));
+  door.position.y = 1.3;
+  var frame = new THREE.Mesh(new THREE.EdgesGeometry(door.geometry));
+  var frameLines = new THREE.LineSegments(new THREE.EdgesGeometry(door.geometry), new THREE.LineBasicMaterial({color:0xd8b464}));
+  frameLines.position.copy(door.position);
+  doorGroup.add(door); doorGroup.add(frameLines);
+  scene.add(doorGroup);
 
-  <script>
-    window.addEventListener('DOMContentLoaded', function () {
-      var keypad = document.querySelector('#keypad');
-      var layout = [
-        ['1','-0.28','0.15'], ['2','0','0.15'], ['3','0.28','0.15'],
-        ['4','-0.28','-0.1'], ['5','0','-0.1'], ['6','0.28','-0.1'],
-        ['7','-0.28','-0.35'], ['8','0','-0.35'], ['9','0.28','-0.35'],
-        ['clear','-0.28','-0.6'], ['0','0','-0.6'], ['enter','0.28','-0.6']
-      ];
-      layout.forEach(function (k) {
-        var btn = document.createElement('a-plane');
-        btn.classList.add('key', 'clickable');
-        btn.setAttribute('data-val', k[0]);
-        btn.setAttribute('width', '0.24');
-        btn.setAttribute('height', '0.2');
-        btn.setAttribute('color', k[0] === 'enter' ? '#2e7d32' : (k[0] === 'clear' ? '#8b1e1e' : '#555'));
-        btn.setAttribute('position', k[1] + ' ' + k[2] + ' 0.01');
-        var label = document.createElement('a-text');
-        label.setAttribute('value', k[0] === 'enter' ? 'OK' : (k[0] === 'clear' ? 'C' : k[0]));
-        label.setAttribute('align', 'center');
-        label.setAttribute('color', '#fff');
-        label.setAttribute('scale', '0.5 0.5 0.5');
-        label.setAttribute('position', '0 0 0.02');
-        btn.appendChild(label);
-        keypad.appendChild(btn);
-      });
+  // ---------- orbs ----------
+  function makeLabelSprite(text, color){
+    var c = document.createElement('canvas'); c.width=256; c.height=128;
+    var ctx = c.getContext('2d');
+    ctx.font = '700 54px Georgia, serif';
+    ctx.fillStyle = color; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.shadowColor = color; ctx.shadowBlur = 20;
+    ctx.fillText(text, 128, 64);
+    var tex = new THREE.CanvasTexture(c);
+    var mat = new THREE.SpriteMaterial({map:tex, transparent:true});
+    var spr = new THREE.Sprite(mat);
+    spr.scale.set(0.9, 0.45, 1);
+    return spr;
+  }
+
+  // ---------- level data ----------
+  // Each level: theme colors, its orbs (with display name + symbol), and how many
+  // of them form the real sequence (any extra orb is a decoy/trap that resets progress).
+  var LEVELS = [
+    { theme:{fog:0x0c0a14, floor:0x241a3a, wall:0x18122a, amb:0x241a3a, pt:0x8a7bd6},
+      sequenceLen:3,
+      orbs:[
+        {id:'moon', name:'Moon', color:0x6fa8e0, sym:'\u263D', pos:[-2.6,1.1,-1.2]},
+        {id:'sun',  name:'Sun',  color:0xe0a63c, sym:'\u2600', pos:[ 2.6,1.1,-1.2]},
+        {id:'leaf', name:'Leaf', color:0x6cc06c, sym:'\u2698', pos:[ 0.0,1.1, 2.4]}
+      ]},
+    { theme:{fog:0x0a1418, floor:0x163030, wall:0x0e2222, amb:0x1e3a3a, pt:0x5bd6c8},
+      sequenceLen:4,
+      orbs:[
+        {id:'star',  name:'Star',  color:0xe6d97a, sym:'\u2605', pos:[-2.7,1.1,-1.6]},
+        {id:'flame', name:'Flame', color:0xe0623c, sym:'\u2668', pos:[ 2.7,1.1,-1.6]},
+        {id:'drop',  name:'Drop',  color:0x5bb0e0, sym:'\u2744', pos:[-2.7,1.1, 2.2]},
+        {id:'root',  name:'Root',  color:0x8bcf6a, sym:'\u2698', pos:[ 2.7,1.1, 2.2]}
+      ]},
+    { theme:{fog:0x140a10, floor:0x33162a, wall:0x220e1c, amb:0x3a1e2c, pt:0xe0a63c},
+      sequenceLen:4,
+      orbs:[
+        {id:'comet', name:'Comet', color:0xd8d8e6, sym:'\u2604', pos:[-2.6,1.1,-1.4]},
+        {id:'crown', name:'Crown', color:0xe0a63c, sym:'\u265B', pos:[ 2.6,1.1,-1.4]},
+        {id:'eye',   name:'Eye',   color:0x9a5be0, sym:'\u25C9', pos:[ 0.0,1.1, 2.6]},
+        {id:'void',  name:'Void',  color:0x5a3a70, sym:'\u25CF', pos:[ 0.0,1.7,-2.9], decoy:true}
+      ]},
+    { theme:{fog:0x090d1c, floor:0x161c3a, wall:0x0e1230, amb:0x1c2450, pt:0x7b9bff},
+      sequenceLen:5,
+      orbs:[
+        {id:'wind',  name:'Wind',  color:0xbfe6ff, sym:'\u2248', pos:[-3.0,1.1,-1.8]},
+        {id:'tide',  name:'Tide',  color:0x4f8fe0, sym:'\u223F', pos:[ 3.0,1.1,-1.8]},
+        {id:'stone', name:'Stone', color:0xa8a090, sym:'\u25C6', pos:[-3.0,1.1, 1.5]},
+        {id:'ember', name:'Ember', color:0xe8703c, sym:'\u2736', pos:[ 3.0,1.1, 1.5]},
+        {id:'spark', name:'Spark', color:0xf2e46a, sym:'\u26A1', pos:[ 0.0,1.1,-2.4]}
+      ]},
+    { theme:{fog:0x0a140e, floor:0x1c3320, wall:0x12261a, amb:0x23402a, pt:0xe6c85a},
+      sequenceLen:5,
+      orbs:[
+        {id:'raven',  name:'Raven',  color:0x8a8aa8, sym:'\u16B1', pos:[-3.2,1.1,-0.5]},
+        {id:'key',    name:'Key',    color:0xe0c050, sym:'\u16B2', pos:[ 3.2,1.1,-0.5]},
+        {id:'candle', name:'Candle', color:0xf0a050, sym:'\u16C9', pos:[-1.8,1.1,-2.8]},
+        {id:'mirror', name:'Mirror', color:0x9adbe8, sym:'\u16DF', pos:[ 1.8,1.1,-2.8]},
+        {id:'bell',   name:'Bell',   color:0xd8c080, sym:'\u16D2', pos:[ 0.0,1.1, 1.4]},
+        {id:'mask',   name:'Mask',   color:0x704050, sym:'\u16DE', pos:[-3.2,1.1, 2.2], decoy:true}
+      ]},
+    { theme:{fog:0x0a0a0e, floor:0x22202c, wall:0x16151f, amb:0x2c2a3c, pt:0xffffff},
+      sequenceLen:6,
+      orbs:[
+        {id:'dawn',   name:'Dawn',   color:0xffb89a, sym:'\u16A0', pos:[ 2.82,1.1, 1.03]},
+        {id:'dusk',   name:'Dusk',   color:0xb07ad8, sym:'\u16A2', pos:[ 1.27,1.5, 2.72]},
+        {id:'thorn',  name:'Thorn',  color:0x7ac07a, sym:'\u16A6', pos:[-1.03,1.1, 2.82]},
+        {id:'frost',  name:'Frost',  color:0xaee4ff, sym:'\u16A8', pos:[-2.72,1.5, 1.27]},
+        {id:'gale',   name:'Gale',   color:0xd8f0e0, sym:'\u16B7', pos:[-2.82,1.1,-1.03]},
+        {id:'soul',   name:'Soul',   color:0xfff0b0, sym:'\u16B9', pos:[-1.27,1.5,-2.72]},
+        {id:'shade',  name:'Shade',  color:0x4a3a60, sym:'\u16BA', pos:[ 1.03,1.1,-2.82], decoy:true},
+        {id:'hollow', name:'Hollow', color:0x3a3a48, sym:'\u16BE', pos:[ 2.72,1.5,-1.27], decoy:true}
+      ]}
+  ];
+
+  var orbs = [];
+  var order = [];
+  var progress = 0;
+  var solved = false;
+  var levelIdx = 0;
+
+  function applyTheme(t){
+    scene.fog.color.setHex(t.fog);
+    floorMat.color.setHex(t.floor);
+    wallMat.color.setHex(t.wall);
+    ambient.color.setHex(t.amb);
+    moon.color.setHex(t.pt);
+  }
+
+  function clearOrbs(){
+    orbs.forEach(function(o){ scene.remove(o); });
+    orbs = [];
+  }
+
+  function buildLevel(idx){
+    var lvl = LEVELS[idx];
+    applyTheme(lvl.theme);
+    clearOrbs();
+    progress = 0; solved = false;
+    doorGroup.position.y = 0;
+    frameLines.material.color.setHex(0xd8b464);
+
+    var names = {};
+    lvl.orbs.forEach(function(def){
+      names[def.id] = def.name;
+      var g = new THREE.SphereGeometry(0.28, 24, 24);
+      var m = new THREE.MeshStandardMaterial({color:def.color, emissive:def.color, emissiveIntensity:0.55, roughness:0.3});
+      var mesh = new THREE.Mesh(g, m);
+      mesh.position.set(def.pos[0], def.pos[1], def.pos[2]);
+      mesh.userData.id = def.id;
+      mesh.userData.baseY = def.pos[1];
+      mesh.userData.baseEmissive = 0.55;
+      var light = new THREE.PointLight(def.color, 0.9, 3.2);
+      mesh.add(light);
+      var label = makeLabelSprite(def.sym, '#'+def.color.toString(16).padStart(6,'0'));
+      label.position.set(0, 0.55, 0);
+      mesh.add(label);
+      scene.add(mesh);
+      orbs.push(mesh);
     });
-  </script>
+
+    // build the real sequence from non-decoy orbs, shuffled
+    order = lvl.orbs.filter(function(d){ return !d.decoy; }).map(function(d){ return d.id; });
+    for(var i=order.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var t=order[i]; order[i]=order[j]; order[j]=t; }
+    order = order.slice(0, lvl.sequenceLen || order.length);
+
+    var phrase;
+    if(order.length===3){
+      phrase = 'As the <b>'+names[order[0]]+'</b> wakes before the <b>'+names[order[1]]+'</b> climbs, '+
+        'and the <b>'+names[order[2]]+'</b> stirs only when both have passed &mdash; awaken them in that turn.';
+    } else {
+      phrase = 'Awaken ' + order.map(function(id,k){
+        return (k===0 ? 'the <b>' : k===order.length-1 ? 'and last the <b>' : 'then the <b>') + names[id] + '</b>';
+      }).join(', ') + '. Trust nothing that is not named.';
+    }
+    document.getElementById('riddle').innerHTML = phrase;
+    document.getElementById('levelTag').textContent = 'CHAMBER '+(idx+1)+' OF '+LEVELS.length;
+
+    var lim = ROOM - 0.4;
+    camRig.position.set(0, 1.6, Math.min(lim, 3));
+  }
+
+  function flashOrb(mesh, ok){
+    mesh.material.emissiveIntensity = 1.6;
+    setTimeout(function(){ mesh.material.emissiveIntensity = ok? 1.1 : mesh.userData.baseEmissive; }, 260);
+  }
+  function showMsg(text){
+    var el = document.getElementById('msg');
+    el.textContent = text; el.style.display='block';
+    setTimeout(function(){ el.style.display='none'; }, 1400);
+  }
+  function selectOrb(mesh){
+    if(solved || !mesh) return;
+    var id = mesh.userData.id;
+    if(id === order[progress]){
+      flashOrb(mesh, true);
+      progress++;
+      if(progress === order.length){
+        solved = true;
+        setTimeout(openDoor, 300);
+      }
+    } else {
+      flashOrb(mesh, false);
+      progress = 0;
+      orbs.forEach(function(o){ o.material.emissiveIntensity = o.userData.baseEmissive; });
+      showMsg(mesh.userData.id && order.indexOf(id)===-1 ? 'A trick! The magic turns against you...' : 'The magic falters... the order resets.');
+    }
+  }
+  function openDoor(){
+    var t0 = null;
+    function step(ts){
+      if(t0===null) t0 = ts;
+      var p = Math.min(1, (ts - t0) / 1400);
+      doorGroup.position.y = -2.6 * p;
+      frameLines.material.color.setHex(0x9dffb0);
+      if(p<1){ requestAnimationFrame(step); return; }
+      if(levelIdx < LEVELS.length - 1){
+        showMsg('The chamber falls silent behind you...');
+        setTimeout(function(){ levelIdx++; buildLevel(levelIdx); }, 1500);
+      } else {
+        document.getElementById('win').style.display='flex';
+      }
+    }
+    requestAnimationFrame(step);
+  }
+
+  buildLevel(0);
+
+  // ---------- desktop controls ----------
+  var keys = {};
+  var yaw = 0, pitch = 0;
+  var pointerLocked = false;
+  var canvas = renderer.domElement;
+
+  document.addEventListener('keydown', function(e){ keys[e.code]=true; });
+  document.addEventListener('keyup', function(e){ keys[e.code]=false; });
+
+  canvas.addEventListener('click', function(){
+    if(!renderer.xr.isPresenting){
+      if(!pointerLocked){ canvas.requestPointerLock(); }
+      else { tryDesktopSelect(); }
+    }
+  });
+  document.addEventListener('pointerlockchange', function(){
+    pointerLocked = document.pointerLockElement === canvas;
+    document.getElementById('reticle').style.display = pointerLocked ? 'block' : 'none';
+  });
+  document.addEventListener('mousemove', function(e){
+    if(!pointerLocked) return;
+    yaw -= e.movementX * 0.0022;
+    pitch -= e.movementY * 0.0022;
+    pitch = Math.max(-1.2, Math.min(1.2, pitch));
+    camRig.rotation.y = yaw;
+    camPitch.rotation.x = pitch;
+  });
+
+  var raycaster = new THREE.Raycaster();
+  function tryDesktopSelect(){
+    raycaster.setFromCamera({x:0,y:0}, camera);
+    var hits = raycaster.intersectObjects(orbs, false);
+    if(hits.length) selectOrb(hits[0].object);
+  }
+
+  function moveDesktop(dt){
+    var speed = 2.0 * dt;
+    var fwd = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw)).multiplyScalar(-1);
+    var right = new THREE.Vector3(fwd.z, 0, -fwd.x);
+    var move = new THREE.Vector3();
+    if(keys['KeyW']) move.add(fwd);
+    if(keys['KeyS']) move.sub(fwd);
+    if(keys['KeyD']) move.add(right);
+    if(keys['KeyA']) move.sub(right);
+    if(move.lengthSq()>0){
+      move.normalize().multiplyScalar(speed);
+      camRig.position.add(move);
+      var lim = ROOM - 0.4;
+      camRig.position.x = Math.max(-lim, Math.min(lim, camRig.position.x));
+      camRig.position.z = Math.max(-lim, Math.min(lim, camRig.position.z));
+    }
+  }
+
+  // ---------- VR controls ----------
+  if(navigator.xr){
+    navigator.xr.isSessionSupported('immersive-vr').then(function(ok){
+      if(ok) document.getElementById('vrBtn').style.display='inline-block';
+    }).catch(function(){});
+  }
+  document.getElementById('vrBtn').addEventListener('click', function(){
+    navigator.xr.requestSession('immersive-vr', {optionalFeatures:['local-floor']}).then(function(session){
+      renderer.xr.setSession(session);
+      document.getElementById('overlay').style.display='none';
+      document.getElementById('hud').style.display='block';
+      session.addEventListener('end', function(){ document.getElementById('overlay').style.display='flex'; });
+    });
+  });
+  var controller = renderer.xr.getController(0);
+  controller.addEventListener('select', function(){
+    var tempMatrix = new THREE.Matrix4();
+    tempMatrix.identity().extractRotation(controller.matrixWorld);
+    var rc = new THREE.Raycaster();
+    rc.ray.origin.setFromMatrixPosition(controller.matrixWorld);
+    rc.ray.direction.set(0,0,-1).applyMatrix4(tempMatrix);
+    var hits = rc.intersectObjects(orbs, false);
+    if(hits.length) selectOrb(hits[0].object);
+  });
+  scene.add(controller);
+  var controllerLine = new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0), new THREE.Vector3(0,0,-2)]),
+    new THREE.LineBasicMaterial({color:0xd8b464})
+  );
+  controller.add(controllerLine);
+
+  // ---------- start / restart ----------
+  document.getElementById('startBtn').addEventListener('click', function(){
+    document.getElementById('overlay').style.display='none';
+    document.getElementById('hud').style.display='block';
+  });
+  document.getElementById('againBtn').addEventListener('click', function(){ location.reload(); });
+
+  // ---------- render loop ----------
+  var clock = new THREE.Clock();
+  renderer.setAnimationLoop(function(){
+    var dt = Math.min(0.05, clock.getDelta());
+    var t = clock.elapsedTime;
+    orbs.forEach(function(o, idx){
+      o.position.y = o.userData.baseY + Math.sin(t*1.2 + idx)*0.06;
+      o.rotation.y += dt*0.6;
+    });
+    if(!renderer.xr.isPresenting) moveDesktop(dt);
+    renderer.render(scene, camera);
+  });
+})();
+</script>
 </body>
 </html>
